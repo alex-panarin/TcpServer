@@ -17,11 +17,20 @@ namespace TcpServer
                 Data = new byte[size];
             }
             public int Size;
-            public byte[] Data;
+            internal byte[] Data;
             public bool HasClosed => Size == 0;
             public bool IsNotEmpty => Size > 0;
             public string GetString() => IsNotEmpty ? Encoding.UTF8.GetString(Data, 0, Size) : string.Empty;
+            public Memory<byte> GetData() => new Memory<byte>(Data, 0, Size);
             public void Clear() => Data.Clear();
+        }
+        public Session(Socket socket, IProcessorFactory<Session> factory) 
+        {
+            _processor = factory.GetProcessor();
+
+            Socket = socket;
+            buffer = new(_processor.GetBufferSize());
+            Id = Guid.NewGuid();
         }
         public Session(Socket socket, int bufferSize = byte.MaxValue)
         {
@@ -95,7 +104,7 @@ namespace TcpServer
         }
         public override string ToString() => $"Session: {Id}";
         public string GetLastValue() => buffer.GetString();
-        public byte[] GetLastData() => buffer.Data;
+        public Memory<byte> GetLastData() => buffer.GetData();
         public void Dispose()
         {
             Dispose(true);

@@ -1,4 +1,5 @@
 ﻿using JobPool;
+using System.Net.Sockets;
 
 namespace TcpServer
 {
@@ -20,6 +21,8 @@ namespace TcpServer
         {
             return await session.GetProcessor(_processorFactory).ProcessWrite(session); 
         }
+
+        protected Session GetSession(Socket socket) => new Session(socket, _processorFactory) { State = JobState.Read};
     }
 }
 

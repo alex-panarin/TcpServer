@@ -24,8 +24,7 @@ namespace TcpServer
                 {
                     while (true)
                     {
-                        var session = new Session(listener.AcceptSocket());
-                        session.State = JobState.Read; // Need to read session data
+                        var session = GetSession(listener.AcceptSocket());
                         AddJob(session);
 
                         Debug.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Add new connection {session.Id} ===");

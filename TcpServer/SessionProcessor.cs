@@ -5,6 +5,11 @@ namespace TcpServer
     public class SessionProcessor
         : IProcessor<Session>
     {
+        public int GetBufferSize()
+        {
+            return ushort.MaxValue;
+        }
+
         public async Task<bool> ProcessRead(Session session)
         {
             if (await session.ReadAsync())
