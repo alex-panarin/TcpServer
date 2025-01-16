@@ -4,7 +4,9 @@
     {
         static async Task Main(string[] args)
         {
+            //using var server = new TcpServer(new SessionProcessorFactory<SessionProcessor>());
             using var server = new TcpServer(new SessionProcessorFactory<FileSessionProcessor>());
+            //using var server = new TcpServer(new SessionProcessorFactory<InterConnectionProcessor>());
 
             var task = Task.Run(() =>
             {

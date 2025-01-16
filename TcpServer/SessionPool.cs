@@ -1,4 +1,5 @@
 ﻿using JobPool;
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 
 namespace TcpServer
@@ -7,7 +8,6 @@ namespace TcpServer
         : JobPool<Session>
     {
         private readonly IProcessorFactory<Session> _processorFactory;
-
         public SessionPool(IProcessorFactory<Session> processorFactory)
             : base()
         {
@@ -22,7 +22,8 @@ namespace TcpServer
             return await session.GetProcessor(_processorFactory).ProcessWrite(session); 
         }
 
-        protected Session GetSession(Socket socket) => new Session(socket, _processorFactory) { State = JobState.Read};
+        protected virtual Session GetSession(Socket socket) 
+            => new Session(socket, _processorFactory) { State = JobState.Read};
     }
 }
 

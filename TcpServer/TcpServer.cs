@@ -1,11 +1,10 @@
-﻿using JobPool;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net.Sockets;
 
 namespace TcpServer
 {
     public class TcpServer
-        : SessionPool
+        : SessionCashedPool
     {
         readonly TcpListener _listener;
         public TcpServer(IProcessorFactory<Session> processorFactory, int port = 9999)

@@ -24,10 +24,9 @@ namespace TcpServer
             public Memory<byte> GetData() => new Memory<byte>(Data, 0, Size);
             public void Clear() => Data.Clear();
         }
-        public Session(Socket socket, IProcessorFactory<Session> factory) 
+        public Session(Socket socket, IProcessorFactory<Session> factory)
         {
             _processor = factory.GetProcessor();
-
             Socket = socket;
             buffer = new(_processor.GetBufferSize());
             Id = Guid.NewGuid();
@@ -50,10 +49,8 @@ namespace TcpServer
         {
             return Task.FromResult(Read());
         }
-        public Task<bool> WriteAsync(string val)  
-        {
-            return Task.FromResult(Write(val));
-        }
+        public Task<bool> WriteAsync(string val)  => Task.FromResult(Write(val));
+        public Task<bool> WriteAsync(byte[] bytes) => Task.FromResult(Write(bytes));
         public bool Read()
         {
             buffer.Size = -1;
@@ -81,13 +78,13 @@ namespace TcpServer
                 return buffer.Size != -1;
             }
         }
-        public bool Write(string val)
+        public bool Write(string val) => Write(Encoding.UTF8.GetBytes(val));
+        public bool Write(byte[] bytes)
         {
             lock (Socket)
             {
                 try
                 {
-                    var bytes = Encoding.UTF8.GetBytes(val);
                     buffer.Clear();
                     System.Buffer.BlockCopy(bytes, 0, buffer.Data, 0, bytes.Length);
                     Socket.Send(buffer.Data, bytes.Length, SocketFlags.None);

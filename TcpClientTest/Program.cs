@@ -22,6 +22,7 @@ namespace TcpClientTest
                              {
                                  //await ProcessSimpeTestTask(i);
                                  await ProcessFileWriteTask(i);
+                                 //await ProcessInterSession(i);
                              }
                              catch (Exception ex)
                              {
@@ -36,6 +37,13 @@ namespace TcpClientTest
             Console.WriteLine($"Result: {sw.ElapsedMilliseconds} ms");
 
             Console.ReadKey();
+        }
+
+        private static async Task ProcessInterSession(int index)
+        {
+            using TcpClient tcpClient = new TcpClient("127.0.0.1", 9999);
+
+            await tcpClient.Client.SendAsync(Encoding.UTF8.GetBytes($" {index} Hello"));
         }
 
         private static async Task ProcessSimpeTestTask(int index)
