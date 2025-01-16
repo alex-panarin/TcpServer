@@ -2,7 +2,7 @@
 
 namespace TcpServer
 {
-    internal class FileSessionProcessor
+    public class FileSessionProcessor
         : IProcessor<Session>
     {
         private readonly MemoryStream _stream;
