@@ -109,12 +109,13 @@ namespace TcpServer
         }
         protected virtual void Dispose(bool disposing)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(GetType().FullName);
-            _disposed = true;
+            if (_disposed == false)
+            {
+                _disposed = true;
 
-            if (Socket?.Connected == true)
-                Socket?.Close();
+                if (Socket?.Connected == true)
+                    Socket?.Close();
+            }
 
             if(disposing)
                 Socket?.Dispose();
