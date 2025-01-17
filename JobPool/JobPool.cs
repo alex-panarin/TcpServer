@@ -97,6 +97,7 @@ namespace JobPool
             }
             catch (OperationCanceledException)
             {
+                ;
             }
         }
         private async Task ProcessJob(SemaphoreSlim @event, ChannelReader<TValue> reader, ChannelWriter<TValue> writer)
@@ -120,6 +121,7 @@ namespace JobPool
             }
             catch (OperationCanceledException)
             {
+                ;
             }
         }
 
@@ -157,7 +159,8 @@ namespace JobPool
         }
         public virtual void Close()
         {
-            _cancellationTokenSource.Cancel();
+            if(_cancellationTokenSource.IsCancellationRequested == false)
+                _cancellationTokenSource.Cancel();
         }
     }
 }
