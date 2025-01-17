@@ -1,51 +1,69 @@
-﻿using System.Diagnostics;
+﻿using JobPool;
+using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
+using TcpServer;
 
 namespace TcpClientTest
 {
     internal class Program
     {
+        const int numberOfTest = 100;
+        
         static void Main(string[] args)
         {
-            const int numberOfTask = 100;
+            
+            bool runTask = false;
 
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            List<Task> tasks = 
-                new List<Task>(Enumerable.Range(0, numberOfTask)
-                    .Select(i =>
-                    {
-                        return Task.Factory.StartNew(async () =>
-                         {
-                             try
-                             {
-                                 //await ProcessSimpeTestTask(i);
-                                 await ProcessFileWriteTask(i);
-                                 //await ProcessInterSession(i);
-                             }
-                             catch (Exception ex)
-                             {
-                                 Console.WriteLine($"Error === {ex.Message}");
-                             }
-                         });
-                    })
-                );
+            if (runTask == false)
+            {
+                using var client = new TcpSessionClient(OnReadData);
+                var testData = Enumerable.Range(0, numberOfTest)
+                                       .Select(i => $"Test Data {i}");
 
-            Task.WhenAll(tasks).Wait();
+                client.ConnectAsync("127.0.0.1", 9999).ConfigureAwait(false);
+
+                testData.ForEach(data => client.Write(data));
+
+                client.Join();
+                ;
+            }
+
+            if (runTask)
+            {
+                List<Task> tasks =
+                    new List<Task>(Enumerable.Range(0, numberOfTest)
+                        .Select(i =>
+                        {
+                            return Task.Factory.StartNew(async () =>
+                             {
+                                 try
+                                 {
+                                     await ProcessSimpeTestTask(i);
+                                     //await ProcessFileWriteTask(i);
+
+                                 }
+                                 catch (Exception ex)
+                                 {
+                                     Console.WriteLine($"Error === {ex.Message}");
+                                 }
+                             });
+                        })
+                    );
+
+                Task.WhenAll(tasks).Wait();
+            }
             sw.Stop();
             Console.WriteLine($"Result: {sw.ElapsedMilliseconds} ms");
 
             Console.ReadKey();
         }
-
-        private static async Task ProcessInterSession(int index)
+        static void OnReadData(Memory<byte> data)
         {
-            using TcpClient tcpClient = new TcpClient("127.0.0.1", 9999);
-
-            await tcpClient.Client.SendAsync(Encoding.UTF8.GetBytes($" {index} Hello"));
+            Console.WriteLine(Encoding.UTF8.GetString(data.ToArray()));
         }
-
         private static async Task ProcessSimpeTestTask(int index)
         {
             using TcpClient tcpClient = new TcpClient("127.0.0.1", 9999);

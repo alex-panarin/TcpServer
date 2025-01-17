@@ -16,7 +16,7 @@ namespace TcpServer
             {
                 if (session.State == JobState.Close)
                 {
-                    //Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Remove connection {session.Id} ===");
+                    Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Remove connection {session.Id} ===");
                     session.Dispose();
                     return false;
                 }
@@ -30,7 +30,7 @@ namespace TcpServer
         {
             var value = session.GetLastValue();
             session.State = JobState.Read;
-            //Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Write: {value} ===");
+            Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Write: {value} ===");
             await session.WriteAsync($"Echo: {value}");
             
             return session.State == JobState.Read;

@@ -89,24 +89,13 @@ namespace JobPool
 
                     await @event.WaitAsync(_cancellationTokenSource.Token);
 
-                    var val = await reader.ReadAsync(_cancellationTokenSource.Token);//queue.TryDequeue(out var val))
+                    var val = await reader.ReadAsync(_cancellationTokenSource.Token);
                     
                     @event.Release();
-                    
-                    if (val.State == JobState.Read)
-                    {
-                        await writer.WriteAsync(val, _cancellationTokenSource.Token);
-                        //Debug.WriteLine($"Read Thread: {Environment.CurrentManagedThreadId}, Get value: {val}");
-                    }
-                    else if (val.State == JobState.Write)
-                    {
-                        var result = await _doWriteJob(val);
-                        if (result == false
-                            || val.State == JobState.Close)
-                        {
-                            continue;
-                        }
-                    }
+
+                    await ProcessReadWrite(val, writer);
+
+                    if (val.State == JobState.Close) break;
                 }
             }
             catch (OperationCanceledException)
@@ -128,21 +117,41 @@ namespace JobPool
                     var val = await reader.ReadAsync(_cancellationTokenSource.Token);
                     
                     @event.Release();
-                    //Debug.WriteLine($"Write Thread: {Environment.CurrentManagedThreadId}, Set value: {val}");
 
-                    if (await _doReadJob(val))
-                        await writer.WriteAsync(val, _cancellationTokenSource.Token);
-                        //queue.Enqueue(val);
+                    await ProcessReadWrite(val, writer);
+
+                    if (val.State == JobState.Close) break;
                 }
             }
             catch (OperationCanceledException)
             {
             }
         }
+
+        private async Task ProcessReadWrite(TValue val, ChannelWriter<TValue> writer)
+        {
+            var result = true;
+
+            if (val.State == JobState.Read)
+            {
+                result = await _doReadJob(val);
+                //Debug.WriteLine($"Read Thread: {Environment.CurrentManagedThreadId}, Get value: {val}");
+            }
+            else if (val.State == JobState.Write)
+            {
+                result = await _doWriteJob(val);
+                //Debug.WriteLine($"Write Thread: {Environment.CurrentManagedThreadId}, Set value: {val}");
+            }
+            
+            if (result == false || val.State == JobState.Close)
+                return;
+
+            await writer.WriteAsync(val, _cancellationTokenSource.Token);
+        }
         public void Join()
         {
             _interrupted = false;
-            Task.WaitAll(_tasks.ToArray());
+            Task.WhenAll(_tasks).Wait();
         }
         public virtual void Dispose()
         {
@@ -152,7 +161,7 @@ namespace JobPool
             _cancellationTokenSource.Dispose();
             //_queue.ForEach(s => { if (s is IDisposable disposable) disposable.Dispose(); });
         }
-        public void Close()
+        public virtual void Close()
         {
             _cancellationTokenSource.Cancel();
         }
