@@ -23,7 +23,6 @@ namespace JobPool
         readonly List<Task> _tasks = [];
         readonly SemaphoreSlim _semaphoreRead = new SemaphoreSlim(1, 1);
         readonly SemaphoreSlim _semaphoreWrite = new SemaphoreSlim(1, 1);
-        //readonly ConcurrentQueue<TValue> _queue = [];
         readonly CancellationTokenSource _cancellationTokenSource = new();
         readonly Channel<TValue> _channelOne = Channel.CreateUnbounded<TValue>(new UnboundedChannelOptions
         {
@@ -94,8 +93,6 @@ namespace JobPool
                     @event.Release();
 
                     await ProcessReadWrite(val, writer);
-
-                    if (val.State == JobState.Close) break;
                 }
             }
             catch (OperationCanceledException)
@@ -119,8 +116,6 @@ namespace JobPool
                     @event.Release();
 
                     await ProcessReadWrite(val, writer);
-
-                    if (val.State == JobState.Close) break;
                 }
             }
             catch (OperationCanceledException)
@@ -159,7 +154,6 @@ namespace JobPool
             _semaphoreRead.Dispose();
             _semaphoreWrite.Dispose();
             _cancellationTokenSource.Dispose();
-            //_queue.ForEach(s => { if (s is IDisposable disposable) disposable.Dispose(); });
         }
         public virtual void Close()
         {
