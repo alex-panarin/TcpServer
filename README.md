@@ -1,5 +1,5 @@
 # TcpServer
-
+## Light weight and low thread capacity TcpServer
 
 It was an article on habr.com about a good perfomance and "not greedy" tcp server that runs in limited threads. 
 The server was written in C++, and I decided to make something similar in C#. 
