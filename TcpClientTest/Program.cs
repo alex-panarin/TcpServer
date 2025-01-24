@@ -1,35 +1,34 @@
 ﻿using JobPool;
 using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using TcpServer;
 
 namespace TcpClientTest
 {
     internal class Program
     {
-        const int numberOfTest = 100;
+        const int numberOfTest = 10;
         
         static void Main(string[] args)
         {
-            
             bool runTask = false;
-
+            
             Stopwatch sw = new Stopwatch();
             sw.Start();
+
             if (runTask == false)
             {
-                using var client = new TcpSessionClient(OnReadData);
-                var testData = Enumerable.Range(0, numberOfTest)
-                                       .Select(i => $"Test Data {i}");
-
-                client.ConnectAsync("127.0.0.1", 9999).ConfigureAwait(false);
-
-                testData.ForEach(data => client.Write(data));
-
-                client.Join();
-                ;
-            }
+                using var client = new TcpClient();
+                Task.Factory.StartNew(async () =>
+                {
+                    await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 9999));
+                    var testData = Enumerable.Range(0, numberOfTest)
+                                            .Select(i => Encoding.UTF8.GetBytes($"Test Data {i}"));
+                    using var stream = client.GetStream();
+                    testData.ForEach(data =>  stream.Write(data));
+                });
+            }                
 
             if (runTask)
             {
@@ -60,10 +59,7 @@ namespace TcpClientTest
 
             Console.ReadKey();
         }
-        static void OnReadData(Memory<byte> data)
-        {
-            Console.WriteLine(Encoding.UTF8.GetString(data.ToArray()));
-        }
+       
         private static async Task ProcessSimpeTestTask(int index)
         {
             using TcpClient tcpClient = new TcpClient("127.0.0.1", 9999);

@@ -2,7 +2,7 @@
 
 namespace TcpServer
 {
-    public class SessionProcessor
+    public class EchoSessionProcessor
         : IProcessor<Session>
     {
         public int GetBufferSize()

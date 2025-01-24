@@ -6,7 +6,7 @@ namespace TcpServerTest
     {
         static async Task Main(string[] args)
         {
-            using var server = new TcpServer.TcpServer(new SessionProcessorFactory<SessionProcessor>());
+            using var server = new TcpServer.TcpServer(new SessionProcessorFactory<EchoSessionProcessor>());
             //using var server = new TcpServer.TcpServer(new SessionProcessorFactory<FileSessionProcessor>());
 
             var task = Task.Run(() =>

@@ -4,7 +4,7 @@ using System.Net.Sockets;
 namespace TcpServer
 {
     public class TcpServer
-        : SessionCashedPool
+        : SessionPool
     {
         readonly TcpListener _listener;
         public TcpServer(IProcessorFactory<Session> processorFactory, int port = 9999)
