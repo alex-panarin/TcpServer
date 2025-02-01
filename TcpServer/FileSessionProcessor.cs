@@ -12,11 +12,9 @@ namespace TcpServer
             _stream = new MemoryStream(ushort.MaxValue * 16);
         }
 
-        public int GetBufferSize() => ushort.MaxValue;
-        
-        public async Task<bool> ProcessRead(Session session)
+        public async Task<bool> ProcessRead(Session session, CancellationToken token)
         {
-            if (await session.ReadAsync())
+            if (await session.ReadAsync(token))
             {
                 await _stream.WriteAsync(session.GetLastData());
 
@@ -39,7 +37,7 @@ namespace TcpServer
             return session.State != JobState.Close; 
         }
 
-        public Task<bool> ProcessWrite(Session session)
+        public Task<bool> ProcessWrite(Session session, CancellationToken token)
         {
             session.State = JobState.Read;
             // Nothing to answer but keep session open.

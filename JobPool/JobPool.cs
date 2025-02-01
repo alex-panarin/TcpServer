@@ -37,15 +37,15 @@ namespace JobPool
             SingleWriter = false,
         });
         volatile bool _interrupted = true;
-        private readonly Func<TValue, Task<bool>> _doReadJob;
-        private readonly Func<TValue, Task<bool>> _doWriteJob;
+        private readonly Func<TValue, CancellationToken, Task<bool>> _doReadJob;
+        private readonly Func<TValue, CancellationToken, Task<bool>> _doWriteJob;
 
         public JobPool(int count = -1)
             : this(null, null, count)
         {
         }
-        public JobPool(Func<TValue, Task<bool>>? doReadJob
-            , Func<TValue, Task<bool>>? doWriteJob
+        public JobPool(Func<TValue, CancellationToken, Task<bool>>? doReadJob
+            , Func<TValue, CancellationToken, Task<bool>>? doWriteJob
             , int count = -1) 
             
         {
@@ -62,37 +62,48 @@ namespace JobPool
             Enumerable.Range(0, count)
                 .ForEach(_ =>
                 {
-                    _tasks.Add(ProcessPool(_semaphoreRead, _channelOne.Writer, _channelTwo.Reader));
-                    _tasks.Add(ProcessJob(_semaphoreWrite, _channelOne.Reader, _channelTwo.Writer));
+                    // _semaphoreRead, _channelOne.Writer, _channelTwo.Reader
+                    _tasks.Add(Task.Factory.StartNew(state => ProcessJob((StateObject)state!)
+                        , new StateObject(_semaphoreRead, _channelOne.Writer, _channelTwo.Reader, _cancellationTokenSource.Token)
+                        , _cancellationTokenSource.Token));
+                    _tasks.Add(Task.Factory.StartNew(state => ProcessJob((StateObject)state!)
+                        , new StateObject(_semaphoreWrite, _channelTwo.Writer, _channelOne.Reader, _cancellationTokenSource.Token)
+                        , _cancellationTokenSource.Token));
                 });
         }
-
-        protected abstract Task<bool> DoRead(TValue value);
-        protected abstract Task<bool> DoWrite(TValue value);
+        record StateObject(SemaphoreSlim Semaphore
+            , ChannelWriter<TValue> Writer
+            , ChannelReader<TValue> Reader
+            , CancellationToken Token)
+        {
+            
+        }
+        protected abstract Task<bool> DoRead(TValue value, CancellationToken token);
+        protected abstract Task<bool> DoWrite(TValue value, CancellationToken token);
 
         public void AddJob(TValue val)
         {
             //_queue.Enqueue(val);
             _channelTwo.Writer.TryWrite(val);
         }
-        private async Task ProcessPool(SemaphoreSlim @event, ChannelWriter<TValue> writer, ChannelReader<TValue> reader)
+        private async Task ProcessJob(StateObject state)
         {
             await Task.Yield();
             //Debug.WriteLine($"Read Thread: {Environment.CurrentManagedThreadId} Start");
 
             try
             {
-                while (!_cancellationTokenSource.IsCancellationRequested)
+                while (!state.Token.IsCancellationRequested)
                 {
                     if (_interrupted) continue;
 
-                    await @event.WaitAsync(_cancellationTokenSource.Token);
+                    await state.Semaphore.WaitAsync(state.Token);
 
-                    var val = await reader.ReadAsync(_cancellationTokenSource.Token);
-                    
-                    @event.Release();
+                    var val = await state.Reader.ReadAsync(state.Token);
 
-                    await ProcessReadWrite(val, writer);
+                    state.Semaphore.Release();
+
+                    await ProcessReadWrite(val, state.Writer, state.Token);
                 }
             }
             catch (OperationCanceledException)
@@ -100,50 +111,26 @@ namespace JobPool
                 ;
             }
         }
-        private async Task ProcessJob(SemaphoreSlim @event, ChannelReader<TValue> reader, ChannelWriter<TValue> writer)
-        {
-            await Task.Yield();
-            //Debug.WriteLine($"Write Thread: {Environment.CurrentManagedThreadId} Start");
-            try
-            {
-                while (!_cancellationTokenSource.IsCancellationRequested)
-                {
-                    if (_interrupted) continue;
-                    //Debug.WriteLine($"Write Thread: {Environment.CurrentManagedThreadId} Running ...");
-                    await @event.WaitAsync(_cancellationTokenSource.Token);
-
-                    var val = await reader.ReadAsync(_cancellationTokenSource.Token);
-                    
-                    @event.Release();
-
-                    await ProcessReadWrite(val, writer);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                ;
-            }
-        }
-
-        private async Task ProcessReadWrite(TValue val, ChannelWriter<TValue> writer)
+        
+        private async Task ProcessReadWrite(TValue val, ChannelWriter<TValue> writer, CancellationToken token)
         {
             var result = true;
 
             if (val.State == JobState.Read)
             {
-                result = await _doReadJob(val);
+                result = await _doReadJob(val, token);
                 //Debug.WriteLine($"Read Thread: {Environment.CurrentManagedThreadId}, Get value: {val}");
             }
             else if (val.State == JobState.Write)
             {
-                result = await _doWriteJob(val);
+                result = await _doWriteJob(val, token);
                 //Debug.WriteLine($"Write Thread: {Environment.CurrentManagedThreadId}, Set value: {val}");
             }
             
             if (result == false || val.State == JobState.Close)
                 return;
 
-            await writer.WriteAsync(val, _cancellationTokenSource.Token);
+            await writer.WriteAsync(val, token);
         }
         public void Join()
         {

@@ -5,14 +5,9 @@ namespace TcpServer
     public class EchoSessionProcessor
         : IProcessor<Session>
     {
-        public int GetBufferSize()
+        public async Task<bool> ProcessRead(Session session, CancellationToken token)
         {
-            return ushort.MaxValue;
-        }
-
-        public async Task<bool> ProcessRead(Session session)
-        {
-            if (await session.ReadAsync())
+            if (await session.ReadAsync(token))
             {
                 if (session.State == JobState.Close)
                 {
@@ -29,12 +24,12 @@ namespace TcpServer
             return session.State != JobState.Close;
         }
 
-        public async Task<bool> ProcessWrite(Session session)
+        public async Task<bool> ProcessWrite(Session session, CancellationToken token)
         {
             var value = session.GetLastValue();
             session.State = JobState.Read;
             Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Write Echo: {value} ===");
-            await session.WriteAsync($"Echo: {value}");
+            await session.WriteAsync($"Echo: {value}", token);
             
             return true;
         }

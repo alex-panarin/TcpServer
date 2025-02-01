@@ -22,37 +22,28 @@ namespace TcpServer
             public bool IsNotEmpty => Size > 0;
             public string GetString() => IsNotEmpty ? Encoding.UTF8.GetString(Data, 0, Size) : string.Empty;
             public Memory<byte> GetData() => new Memory<byte>(Data, 0, Size);
-            public void Clear() => Data.Clear();
+            public void Clear() => Array.Clear(Data);//Data.Clear();
         }
-        public Session(Socket socket, IProcessorFactory<Session> factory)
+        public Session(Socket socket, IProcessorFactory<Session> factory, int bufferSize)
         {
             _processor = factory.GetProcessor();
-            Socket = socket;
-            buffer = new(_processor.GetBufferSize());
-            Id = Guid.NewGuid();
-        }
-        public Session(Socket socket, int bufferSize = byte.MaxValue)
-        {
             Socket = socket;
             buffer = new(bufferSize);
             Id = Guid.NewGuid();
         }
+        
         private Buffer buffer;
         private bool _disposed = false;
         protected Socket Socket;
-        private IProcessor<Session>? _processor;
+        private readonly IProcessor<Session> _processor;
 
         public EndPoint? Address => Socket?.RemoteEndPoint;
         public Guid Id { get; }
         public JobState State { get; set; }
-        public Task<bool> ReadAsync()
+        public async Task<bool> ReadAsync(CancellationToken token)
         {
-            return Task.FromResult(Read());
-        }
-        public Task<bool> WriteAsync(string val)  => Task.FromResult(Write(val));
-        public Task<bool> WriteAsync(byte[] bytes) => Task.FromResult(Write(bytes));
-        public bool Read()
-        {
+            await Task.Yield();
+
             buffer.Size = -1;
             lock (Socket)
             {
@@ -71,16 +62,18 @@ namespace TcpServer
                 {
                     Socket.Blocking = true;
                 }
-                
+
                 if (buffer.Size == 0)
                     State = JobState.Close;
 
                 return buffer.Size != -1;
             }
         }
-        public bool Write(string val) => Write(Encoding.UTF8.GetBytes(val));
-        public bool Write(byte[] bytes)
+        public async Task<bool> WriteAsync(string val, CancellationToken token)  => await WriteAsync(Encoding.UTF8.GetBytes(val), token);
+        public async Task<bool> WriteAsync(byte[] bytes, CancellationToken token)
         {
+            await Task.Yield();
+
             lock (Socket)
             {
                 try
@@ -120,9 +113,8 @@ namespace TcpServer
             if(disposing)
                 Socket?.Dispose();
         }
-        public IProcessor<Session> GetProcessor(IProcessorFactory<Session> processorFactory)
+        public IProcessor<Session> GetProcessor()
         {
-            _processor ??= processorFactory.GetProcessor();
             return _processor;
         }
         ~Session () => Dispose(false);

@@ -26,7 +26,7 @@ namespace TcpServer
                         var session = GetSession(listener.AcceptSocket());
                         AddJob(session);
 
-                        Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Add new connection {session.Id} ===");
+                        //Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Add new connection {session.Id} ===");
                     }
                 }
                 catch (SocketException x)

@@ -10,7 +10,5 @@
                 action(enu.Current);
             }
         }
-
-        public static void Clear(this byte[] bytes) => bytes.ForEach(x => x = 0);
     }
 }

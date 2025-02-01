@@ -8,26 +8,27 @@ namespace TcpClientTest
 {
     internal class Program
     {
-        const int numberOfTest = 10;
+        const int numberOfTest = 500;
         
         static void Main(string[] args)
         {
-            bool runTask = false;
+            bool runTask = true;
             
-            Stopwatch sw = new Stopwatch();
+            Stopwatch sw = new();
             sw.Start();
 
             if (runTask == false)
             {
-                using var client = new TcpClient();
                 Task.Factory.StartNew(async () =>
                 {
+                    using var client = new TcpClient();
                     await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 9999));
                     var testData = Enumerable.Range(0, numberOfTest)
-                                            .Select(i => Encoding.UTF8.GetBytes($"Test Data {i}"));
+                        .Select(i => Encoding.UTF8.GetBytes($"Test Data {i}\r\n"));
                     using var stream = client.GetStream();
                     testData.ForEach(data =>  stream.Write(data));
-                });
+                })
+                .Wait();
             }                
 
             if (runTask)
@@ -41,6 +42,7 @@ namespace TcpClientTest
                                  try
                                  {
                                      await ProcessSimpeTestTask(i);
+                                     //await  ProcessWritePoolTestTask(i);
                                      //await ProcessFileWriteTask(i);
 
                                  }
@@ -65,6 +67,23 @@ namespace TcpClientTest
             using TcpClient tcpClient = new TcpClient("127.0.0.1", 9999);
 
             await tcpClient.Client.SendAsync(Encoding.UTF8.GetBytes($" {index} Hello"));
+
+            var bytes = new byte[1024];
+            var number = tcpClient.Client.Receive(bytes);
+
+            Console.WriteLine(Encoding.UTF8.GetString(bytes, 0, number));
+        }
+
+        private static async Task ProcessWritePoolTestTask(int index)
+        {
+            using TcpClient tcpClient = new TcpClient("127.0.0.1", 9999);
+
+            var testData = Enumerable.Range(0, 10)
+                .Select(i => Encoding.UTF8.GetBytes($"Test Data {(index + 1) + i}\r\n")); 
+            foreach (var test in testData)
+            {
+                await tcpClient.Client.SendAsync(test);
+            }
 
             var bytes = new byte[1024];
             var number = tcpClient.Client.Receive(bytes);

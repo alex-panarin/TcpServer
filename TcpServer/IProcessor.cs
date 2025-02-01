@@ -7,8 +7,7 @@
 
     public interface IProcessor<TArg>
     {
-        int GetBufferSize();
-        Task<bool> ProcessRead(TArg arg);
-        Task<bool> ProcessWrite(TArg arg);
+        Task<bool> ProcessRead(TArg arg, CancellationToken token);
+        Task<bool> ProcessWrite(TArg arg, CancellationToken token);
     }
 }

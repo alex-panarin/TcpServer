@@ -12,17 +12,17 @@ namespace TcpServer
         {
             _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
         }
-        protected override async Task<bool> DoRead(Session session)
+        protected override async Task<bool> DoRead(Session session, CancellationToken token)
         {
-            return await session.GetProcessor(_processorFactory).ProcessRead(session); 
+            return await session.GetProcessor().ProcessRead(session, token); 
         }
-        protected override async Task<bool> DoWrite(Session session)
+        protected override async Task<bool> DoWrite(Session session, CancellationToken token)
         {
-            return await session.GetProcessor(_processorFactory).ProcessWrite(session); 
+            return await session.GetProcessor().ProcessWrite(session, token); 
         }
 
         protected virtual Session GetSession(Socket socket) 
-            => new Session(socket, _processorFactory) { State = JobState.Read};
+            => new Session(socket, _processorFactory, ushort.MaxValue) { State = JobState.Read};
     }
 }
 
