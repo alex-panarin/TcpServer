@@ -1,4 +1,5 @@
 ﻿using JobPool;
+using System.Diagnostics;
 
 namespace TcpServer
 {
@@ -11,7 +12,7 @@ namespace TcpServer
             {
                 if (session.State == JobState.Close)
                 {
-                    Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Remove connection {session.Id} ===");
+                    //Debug.WriteLine($"=== Thread: {Thread.CurrentThread.ManagedThreadId} => Remove connection {session.Id} ===");
                     session.Dispose();
                     session.State = JobState.Close;
                 }
@@ -28,7 +29,7 @@ namespace TcpServer
         {
             var value = session.GetLastValue();
             session.State = JobState.Read;
-            Console.WriteLine($"=== Thread: {Environment.CurrentManagedThreadId} => Write Echo: {value} ===");
+            Console.WriteLine($"=== Thread: {Thread.CurrentThread.ManagedThreadId} => Write Echo: {value} ===");
             await session.WriteAsync($"Echo: {value}", token);
             
             return true;

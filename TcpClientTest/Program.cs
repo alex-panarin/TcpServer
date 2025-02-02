@@ -1,6 +1,4 @@
-﻿using JobPool;
-using System.Diagnostics;
-using System.Net;
+﻿using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 
@@ -8,54 +6,35 @@ namespace TcpClientTest
 {
     internal class Program
     {
-        const int numberOfTest = 500;
-        
+        const int numberOfTests = 1000;
+
         static void Main(string[] args)
         {
-            bool runTask = true;
-            
             Stopwatch sw = new();
             sw.Start();
+            List<Task> tasks =
+                new List<Task>(Enumerable.Range(0, numberOfTests)
+                    .Select(i =>
+                    {
+                        return Task.Factory.StartNew(async () =>
+                            {
+                                try
+                                {
+                                    await ProcessSimpeTestTask(i);
+                                    //await  ProcessWritePoolTestTask(i);
+                                    //await ProcessFileWriteTask(i);
 
-            if (runTask == false)
-            {
-                Task.Factory.StartNew(async () =>
-                {
-                    using var client = new TcpClient();
-                    await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 9999));
-                    var testData = Enumerable.Range(0, numberOfTest)
-                        .Select(i => Encoding.UTF8.GetBytes($"Test Data {i}\r\n"));
-                    using var stream = client.GetStream();
-                    testData.ForEach(data =>  stream.Write(data));
-                })
-                .Wait();
-            }                
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"Error === {ex.Message}");
+                                }
+                            });
+                    })
+                );
 
-            if (runTask)
-            {
-                List<Task> tasks =
-                    new List<Task>(Enumerable.Range(0, numberOfTest)
-                        .Select(i =>
-                        {
-                            return Task.Factory.StartNew(async () =>
-                             {
-                                 try
-                                 {
-                                     await ProcessSimpeTestTask(i);
-                                     //await  ProcessWritePoolTestTask(i);
-                                     //await ProcessFileWriteTask(i);
+            Task.WhenAll(tasks).Wait();
 
-                                 }
-                                 catch (Exception ex)
-                                 {
-                                     Console.WriteLine($"Error === {ex.Message}");
-                                 }
-                             });
-                        })
-                    );
-
-                Task.WhenAll(tasks).Wait();
-            }
             sw.Stop();
             Console.WriteLine($"Result: {sw.ElapsedMilliseconds} ms");
 
@@ -93,8 +72,9 @@ namespace TcpClientTest
 
         private static async Task ProcessFileWriteTask(int index)
         {
+            const string path = "Path_To_Test_File";
             using TcpClient tcpClient = new TcpClient("127.0.0.1", 9999);
-            using var stream = File.OpenRead("Path_To_Test_File");
+            using var stream = File.OpenRead(path);
 
             await stream.CopyToAsync(tcpClient.GetStream(), ushort.MaxValue);
         }

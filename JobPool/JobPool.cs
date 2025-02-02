@@ -49,7 +49,7 @@ namespace JobPool
             , int count = -1) 
             
         {
-            if(count != -1 && count < 2) throw new ArgumentOutOfRangeException($"Count - {count} - should be grater then 1");
+            if(count != -1 && count < 1) throw new ArgumentOutOfRangeException($"Count - {count} - should be grater then or equals 1");
 
             if (count == -1)
                 count = Environment.ProcessorCount / 2;
@@ -59,24 +59,22 @@ namespace JobPool
 
             Debug.WriteLine($"Job queue start {count}");
 
+            var contextOne = new ContextObject(_semaphoreRead, _channelOne.Writer, _channelTwo.Reader, _cancellationTokenSource.Token);
+            var contextTwo = new ContextObject(_semaphoreWrite, _channelTwo.Writer, _channelOne.Reader, _cancellationTokenSource.Token);
             Enumerable.Range(0, count)
                 .ForEach(_ =>
                 {
-                    // _semaphoreRead, _channelOne.Writer, _channelTwo.Reader
-                    _tasks.Add(Task.Factory.StartNew(state => ProcessJob((StateObject)state!)
-                        , new StateObject(_semaphoreRead, _channelOne.Writer, _channelTwo.Reader, _cancellationTokenSource.Token)
-                        , _cancellationTokenSource.Token));
-                    _tasks.Add(Task.Factory.StartNew(state => ProcessJob((StateObject)state!)
-                        , new StateObject(_semaphoreWrite, _channelTwo.Writer, _channelOne.Reader, _cancellationTokenSource.Token)
-                        , _cancellationTokenSource.Token));
+                    _tasks.Add(Task.Factory.StartNew(context => ProcessJob((ContextObject)context!)
+                        , contextOne));
+                    _tasks.Add(Task.Factory.StartNew(context => ProcessJob((ContextObject)context!)
+                        , contextTwo));
                 });
         }
-        record StateObject(SemaphoreSlim Semaphore
+        record ContextObject(SemaphoreSlim Semaphore
             , ChannelWriter<TValue> Writer
             , ChannelReader<TValue> Reader
             , CancellationToken Token)
         {
-            
         }
         protected abstract Task<bool> DoRead(TValue value, CancellationToken token);
         protected abstract Task<bool> DoWrite(TValue value, CancellationToken token);
@@ -86,10 +84,9 @@ namespace JobPool
             //_queue.Enqueue(val);
             _channelTwo.Writer.TryWrite(val);
         }
-        private async Task ProcessJob(StateObject state)
+        private async ValueTask ProcessJob(ContextObject state)
         {
-            await Task.Yield();
-            //Debug.WriteLine($"Read Thread: {Environment.CurrentManagedThreadId} Start");
+            // Debug.WriteLine($"Task Thread: {Thread.CurrentThread.ManagedThreadId} Start");
 
             try
             {
@@ -98,12 +95,12 @@ namespace JobPool
                     if (_interrupted) continue;
 
                     await state.Semaphore.WaitAsync(state.Token);
-
-                    var val = await state.Reader.ReadAsync(state.Token);
-
+                    //Debug.WriteLine($"--- Process Thread: {Thread.CurrentThread.ManagedThreadId}");
+                    var value = await state.Reader.ReadAsync(state.Token);
+                    
                     state.Semaphore.Release();
 
-                    await ProcessReadWrite(val, state.Writer, state.Token);
+                    await ProcessReadWrite(value, state.Writer, state.Token);
                 }
             }
             catch (OperationCanceledException)
@@ -112,25 +109,25 @@ namespace JobPool
             }
         }
         
-        private async Task ProcessReadWrite(TValue val, ChannelWriter<TValue> writer, CancellationToken token)
+        private async ValueTask ProcessReadWrite(TValue value, ChannelWriter<TValue> writer, CancellationToken token)
         {
             var result = true;
 
-            if (val.State == JobState.Read)
+            if (value.State == JobState.Read)
             {
-                result = await _doReadJob(val, token);
-                //Debug.WriteLine($"Read Thread: {Environment.CurrentManagedThreadId}, Get value: {val}");
+                result = await _doReadJob(value, token);
+                //Debug.WriteLine($"--- Get value: {value}, Thread: {Thread.CurrentThread.ManagedThreadId}");
             }
-            else if (val.State == JobState.Write)
+            else if (value.State == JobState.Write)
             {
-                result = await _doWriteJob(val, token);
-                //Debug.WriteLine($"Write Thread: {Environment.CurrentManagedThreadId}, Set value: {val}");
+                result = await _doWriteJob(value, token);
+                //Debug.WriteLine($"--- Set value: {value}, Thread: {Thread.CurrentThread.ManagedThreadId}");
             }
-            
-            if (result == false || val.State == JobState.Close)
+
+            if (result == false || value.State == JobState.Close)
                 return;
 
-            await writer.WriteAsync(val, token);
+            await writer.WriteAsync(value, token);
         }
         public void Join()
         {
